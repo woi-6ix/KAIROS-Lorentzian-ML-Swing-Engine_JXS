@@ -11,7 +11,7 @@
 
 **Why KAIROS?** Kairos personifies the opportune moment in Greek mythology. The name reflects waiting until the kernel's direction, enabled confirmations, and trading hours align.
 
-## Overview: How the Machine Learning Works
+## Overview: How the Machine Learning is Applied
 
 Approximate Nearest Neighbor (ANN) search algorithm is a machine learning and data retrieval technique used to find data points in large datasets that are closest to a query point. [1] **ANN Machine Learning (ML)** in KAIROS classifies today's market state using stored historical examples. Each bar becomes a **feature vector**: a list of normalized indicator readings describing momentum, price deviation, and trend strength. A **label** is the directional value attached to a historical example.
 
