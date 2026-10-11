@@ -37,6 +37,11 @@ The logarithm compresses large differences, changing which historical states loo
 
 KAIROS uses **approximate nearest neighbors (ANN)**: a chronological candidate scan with a moving acceptance threshold and persistent vote queue. Its Neighbor Count controls retained votes. It does not sort the history to select the exact `k` smallest distances. The implementation and labels are explained below. Historical feature comparisons produce the ML score, which confirms a kernel trigger.
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/35cb3110-a4cb-4942-bc02-20065d75f059"
+       style="height:400px; width:auto;" />
+</p>
+
 ### Nadaraya–Watson kernel regression
 
 In quantitative trading, the Nadaraya–Watson (NW) estimator is used as an ultra-smooth, adaptive trend indicator that filters out market noise without the harsh mathematical lag seen in traditional moving averages. Instead of evaluating price over a fixed window (like a Simple Moving Average), it applies an algorithmic time-weighting (usually a Gaussian or Rational Quadratic kernel) where historical price bars fade exponentially based on their distance from the target estimation point. 
