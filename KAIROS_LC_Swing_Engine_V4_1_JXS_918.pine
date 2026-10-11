@@ -572,18 +572,15 @@ var float shortTarget = na
 string GROUP_SIZE = "V4.1 Entry Quantity"
 float entryQuantityInput = input.float(2500.0, "Entry Quantity / Shares", minval=0.001, step=1, group=GROUP_SIZE, tooltip="Underlying shares/contracts per new position. Rounded down to the symbol minimum. This input overrides the quantity in strategy Properties. Reversals close the existing position and open this quantity in the new direction.")
 float entryQuantity = math.floor(entryQuantityInput / syminfo.mincontract) * syminfo.mincontract
-
 string GROUP_CASH = "V4.1 Maximum Stop Loss"
 bool enableCashLossCap = input.bool(false, "Enable Maximum Cash Loss", group=GROUP_CASH)
 float maximumCashLoss = input.float(500, "Maximum Loss (account currency)", minval=1, step=25, group=GROUP_CASH, tooltip="Default 500 USD per open position. Uses strategy account currency. Cash protection remains enabled if Use Profit / Stop is disabled. A stop cannot guarantee this amount on gaps/slippage; fees are excluded.")
 bool showCashLossBox = input.bool(false, "Show Maximum Loss Box", group=GROUP_CASH, tooltip="Hide the box without disabling the cap. Use Enable Maximum Cash Loss to turn off protection.")
 string cashBoxPosition = input.string("Bottom Left", "Loss Box Position", options=["Bottom Left", "Bottom Right", "Top Left", "Top Right"], group=GROUP_CASH)
-
 f_cashStopDistance(float quantity) =>
     float tickValue = quantity * syminfo.pointvalue * syminfo.mintick
     float cashTicks = tickValue > 0 ? math.floor(strategy.convert_to_symbol(maximumCashLoss) / tickValue) : na
     cashTicks * syminfo.mintick
-
 float proposedCashDistance = f_cashStopDistance(entryQuantity)
 bool entryQuantityReady = entryQuantity >= syminfo.mincontract and (not enableCashLossCap or (not na(proposedCashDistance) and proposedCashDistance >= syminfo.mintick))
 // Entries are skipped when the chosen size cannot fit even a one-tick cash stop.
@@ -600,11 +597,9 @@ int lcNeighborsCount = input.int(8, "Neighbor Count", minval=1, maxval=100, grou
 int lcHistoryBars = input.int(2000, "Maximum Training History (bars)", minval=100, maxval=5000, group=GROUP_LC, tooltip="Rolling past-bar window for ANN candidates. Buffers never exceed this size. Large histories increase computation time.")
 int lcFeatureCount = input.int(5, "Feature Slots to Consider", minval=1, maxval=5, group=GROUP_LC, tooltip="Use the first N feature slots, then apply their individual Enable switches. At least one considered slot must be enabled when LC is on.")
 float lcTrainingSource = input.source(close, "Training Label Source", group=GROUP_LC)
-
 string GROUP_PREDICTION = "V4.1 ML Prediction Confirmation"
 bool useMLPredictionFilter = input.bool(true, "Enable ML Prediction Filter", group=GROUP_PREDICTION, tooltip="When LC is enabled, require a current net vote score in the trade direction. OFF uses the LC direction state alone, which persists through zero votes. The LC master switch disables both checks.")
 int minMLPredictionVotes = input.int(1, "Minimum Net Directional Votes", minval=1, maxval=100, group=GROUP_PREDICTION, tooltip="Long: prediction >= this value. Short: prediction <= its negative. Must not exceed Neighbor Count when this filter is enabled. This is a vote threshold, not a probability of profit.")
-
 string GROUP_LC_FEATURES = "V4.1 LC Feature Engineering"
 bool lcEnableFeature1 = input.bool(true, "Enable Feature 1", group=GROUP_LC_FEATURES, inline="f1")
 string lcFeature1Type = input.string("RSI", "Type", options=["RSI", "WT", "CCI", "ADX"], group=GROUP_LC_FEATURES, inline="f1")
@@ -626,7 +621,6 @@ bool lcEnableFeature5 = input.bool(true, "Enable Feature 5", group=GROUP_LC_FEAT
 string lcFeature5Type = input.string("RSI", "Type", options=["RSI", "WT", "CCI", "ADX"], group=GROUP_LC_FEATURES, inline="f5")
 int lcFeature5A = input.int(9, "Parameter A", minval=1, maxval=200, group=GROUP_LC_FEATURES, inline="p5")
 int lcFeature5B = input.int(1, "Parameter B", minval=1, maxval=200, group=GROUP_LC_FEATURES, inline="p5")
-
 string GROUP_EMA = "V4.1 EMA Entry Filter"
 bool useEMAEntryFilter = input.bool(false, "Enable EMA Entry Filter", group=GROUP_EMA)
 int emaEntryLength = input.int(200, "EMA Length", minval=1, maxval=2000, group=GROUP_EMA)
@@ -638,8 +632,9 @@ bool showSMAEntryLine = input.bool(false, "Show SMA Line", group=GROUP_SMA)
 string GROUP_ML_DISPLAY = "V4.1 Filter Display"
 bool showMLFilterStats = input.bool(true, "Show New Filter Statistics", group=GROUP_ML_DISPLAY)
 bool showMLDataWindow = input.bool(true, "Show ML Score in Data Window", group=GROUP_ML_DISPLAY)
-bool showLCBarColours = input.bool(false, "Show Bar Colours", group=GROUP_ML_DISPLAY, tooltip="Tint confirmed candles using the LC net vote direction and strength. Requires Enable LC Direction Filter.")
-bool showLCBarPrediction = input.bool(false, "Show Bar Prediction Value", group=GROUP_ML_DISPLAY, tooltip="Show the current LC net vote above positive candles and below negative/neutral candles. Requires Enable LC Direction Filter. TradingView retains up to 500 labels.")
+// V4.1 LC display controls. Both options are independent and display only.
+bool showLCBarColours = input.bool(false, "Show Bar Colours", group=GROUP_ML_DISPLAY, tooltip="Colour confirmed candles using the current LC net prediction. Requires the LC Direction Filter to be enabled and warmed up.")
+bool showLCBarPrediction = input.bool(false, "Show Bar Prediction Value", group=GROUP_ML_DISPLAY, tooltip="Show the actual LC net vote above positive candles and below negative/neutral candles. Votes are not probabilities. TradingView retains up to 500 labels.")
 
 f_lcFeature(simple string featureType, simple int parameterA, simple int parameterB) =>
     switch featureType
@@ -648,7 +643,6 @@ f_lcFeature(simple string featureType, simple int parameterA, simple int paramet
         "CCI" => ml.n_cci(close, parameterA, parameterB)
         "ADX" => ml.n_adx(high, low, close, parameterA)
         => na
-
 // Evaluate every execution so TA series histories remain consistent.
 float lcFeature1 = f_lcFeature(lcFeature1Type, lcFeature1A, lcFeature1B)
 float lcFeature2 = f_lcFeature(lcFeature2Type, lcFeature2A, lcFeature2B)
@@ -662,13 +656,11 @@ bool lcUse4 = lcFeatureCount >= 4 and lcEnableFeature4
 bool lcUse5 = lcFeatureCount >= 5 and lcEnableFeature5
 int lcActiveFeatureCount = (lcUse1 ? 1 : 0) + (lcUse2 ? 1 : 0) + (lcUse3 ? 1 : 0) + (lcUse4 ? 1 : 0) + (lcUse5 ? 1 : 0)
 bool lcFeaturesReady = (not lcUse1 or not na(lcFeature1)) and (not lcUse2 or not na(lcFeature2)) and (not lcUse3 or not na(lcFeature3)) and (not lcUse4 or not na(lcFeature4)) and (not lcUse5 or not na(lcFeature5))
-
 if barstate.isfirst and useLCFilter
     if lcActiveFeatureCount == 0
         runtime.error("KAIROS V4.1: enable at least one considered LC feature, or turn off Enable LC Direction Filter.")
     if useMLPredictionFilter and minMLPredictionVotes > lcNeighborsCount
         runtime.error("KAIROS V4.1: Minimum Net Directional Votes cannot exceed Neighbor Count. Lower the threshold or disable ML Prediction Filter.")
-
 // Primitive varip arrays/state survive order-fill recalculations and rollback.
 varip array<float> lcHistory1 = array.new<float>()
 varip array<float> lcHistory2 = array.new<float>()
@@ -689,7 +681,6 @@ varip int lcLastObservedClosedTrades = 0
 bool lcFillRecalculation = strategy.position_size != lcLastObservedPosition or strategy.closedtrades != lcLastObservedClosedTrades
 lcLastObservedPosition := strategy.position_size
 lcLastObservedClosedTrades := strategy.closedtrades
-
 f_lcDistance(int index) =>
     float distance = 0.0
     if lcUse1
@@ -703,7 +694,6 @@ f_lcDistance(int index) =>
     if lcUse5
         distance += math.log(1 + math.abs(lcFeature5 - array.get(lcHistory5, index)))
     distance
-
 if useLCFilter and barstate.isconfirmed and not lcFillRecalculation and (na(lcLastProcessedBar) or lcLastProcessedBar != bar_index)
     lcLastProcessedBar := bar_index
     lcPredictionBar := na
@@ -717,7 +707,6 @@ if useLCFilter and barstate.isconfirmed and not lcFillRecalculation and (na(lcLa
                 array.remove(lcDistances, expiredVoteIndex)
                 array.remove(lcVoteBarIds, expiredVoteIndex)
             expiredVoteIndex -= 1
-
         int candidateCount = array.size(lcHistoryLabels)
         float lastDistance = -1.0
         if candidateCount > 0
@@ -738,12 +727,10 @@ if useLCFilter and barstate.isconfirmed and not lcFillRecalculation and (na(lcLa
                             array.shift(lcDistances)
                             array.shift(lcVotes)
                             array.shift(lcVoteBarIds)
-
         lcPrediction := array.size(lcVotes) > 0 ? int(array.sum(lcVotes)) : 0
         lcDirection := lcPrediction > 0 ? 1 : lcPrediction < 0 ? -1 : lcDirection
         if candidateCount >= lcNeighborsCount and array.size(lcVotes) == lcNeighborsCount
             lcPredictionBar := bar_index
-
         // Published JDE labeling convention, retained verbatim with long=1,
         // short=-1: source[4] < source => short; source[4] > source => long.
         // These are known historical labels, never future-bar references.
@@ -763,7 +750,6 @@ if useLCFilter and barstate.isconfirmed and not lcFillRecalculation and (na(lcLa
             array.shift(lcHistory5)
             array.shift(lcHistoryLabels)
             array.shift(lcHistoryBarIds)
-
 int lcNeighborsUsed = array.size(lcVotes)
 bool lcModelReady = useLCFilter and not na(lcPredictionBar) and lcPredictionBar == bar_index and lcNeighborsUsed == lcNeighborsCount
 bool lcEntryReady = lcModelReady and not lcFillRecalculation
@@ -772,7 +758,6 @@ bool longLCFilterPass = not useLCFilter or (lcEntryReady and lcDirection == 1)
 bool shortLCFilterPass = not useLCFilter or (lcEntryReady and lcDirection == -1)
 bool longMLPredictionPass = not useLCFilter or not useMLPredictionFilter or (lcEntryReady and lcPrediction >= minMLPredictionVotes)
 bool shortMLPredictionPass = not useLCFilter or not useMLPredictionFilter or (lcEntryReady and lcPrediction <= -minMLPredictionVotes)
-
 float emaEntryValue = ta.ema(close, emaEntryLength)
 float smaEntryValue = ta.sma(close, smaEntryLength)
 bool longEMAEntryPass = not useEMAEntryFilter or (not na(emaEntryValue) and close > emaEntryValue)
@@ -786,61 +771,55 @@ plot(useSMAEntryFilter and showSMAEntryLine ? smaEntryValue : na, title="KAIROS 
 plot(useLCFilter and showMLDataWindow and lcModelReady ? lcPrediction : na, title="KAIROS V4.1 ML Prediction", display=display.data_window)
 plot(useLCFilter and showMLDataWindow and lcModelReady ? lcVoteStrength : na, title="KAIROS V4.1 ML Vote Strength (%)", display=display.data_window)
 // ============================================================================
-// V4.1 LC BAR VISUALIZATION — DISPLAY ONLY
-// Jdehorty-style neutral-to-directional gradients scale with Neighbor Count.
-// Uses the existing prediction; no additional model samples or trade decisions.
+// V4.1 LC BAR VISUALIZATION — ADAPTED FROM JDEHORTY
+// Uses the existing prediction; display settings never affect orders or filters.
 // ============================================================================
 bool lcVisualReady = useLCFilter and lcModelReady and barstate.isconfirmed
-color lcVisualGreen = #009988
-color lcVisualRed = #CC3311
-color lcVisualNeutral = #787B86
+int lcVisualStrength = math.min(math.abs(lcPrediction), 10)
+int lcVisualTransparency = math.max(0, 90 - lcVisualStrength * 10)
 color lcVisualPredictionColor = (
      lcPrediction > 0
-     ? color.from_gradient(lcPrediction, 0, lcNeighborsCount, lcVisualNeutral, lcVisualGreen)
+     ? color.new(#009988, lcVisualTransparency)
      : lcPrediction < 0
-     ? color.from_gradient(lcPrediction, -lcNeighborsCount, 0, lcVisualRed, lcVisualNeutral)
-     : lcVisualNeutral
+     ? color.new(#CC3311, lcVisualTransparency)
+     : color.new(#787B86, 25)
 )
 barcolor(
      showLCBarColours and lcVisualReady ? color.new(lcVisualPredictionColor, 50) : na,
      title="KAIROS V4.1 LC Bar Colours"
 )
-
-// Evaluate ATR on every execution, including fill callbacks.
+// Calculate ATR on every execution to keep its series history consistent.
 float lcVisualAtr = ta.atr(1)
 float lcVisualLabelY = lcPrediction > 0 ? high + lcVisualAtr : low - lcVisualAtr
 string lcVisualLabelStyle = lcPrediction > 0 ? label.style_label_down : label.style_label_up
+// Ordinary var follows label rollback on realtime bars. If TradingView rolls
+// back a drawing before another fill execution, the guard rolls back with it,
+// allowing the label to be recreated. Historical fill executions are deduped.
+var int lcLastVisualLabelBar = na
+bool lcCanDrawPrediction = (
+     showLCBarPrediction and
+     lcVisualReady and
+     (na(lcLastVisualLabelBar) or lcLastVisualLabelBar != bar_index)
+)
+if lcCanDrawPrediction
+    label.new(
+         x=bar_index,
+         y=lcVisualLabelY,
+         text=str.tostring(lcPrediction),
+         xloc=xloc.bar_index,
+         yloc=yloc.price,
+         style=lcVisualLabelStyle,
+         color=color.new(color.white, 100),
+         textcolor=lcVisualPredictionColor,
+         size=size.normal,
+         textalign=text.align_left
+    )
+    lcLastVisualLabelBar := bar_index
+// END V4.1 LC BAR VISUALIZATION
 
-// A normal var label rolls back with TradingView's drawing objects.
-// Recreate a rolled-back label when needed; reuse it on repeated executions.
-// Unlike a varip bar guard, this does not suppress a deleted realtime label.
-var label lcLastVisualLabel = na
-if showLCBarPrediction and lcVisualReady
-    if na(lcLastVisualLabel) or label.get_x(lcLastVisualLabel) != bar_index
-        lcLastVisualLabel := label.new(
-             x=bar_index,
-             y=lcVisualLabelY,
-             text=str.tostring(lcPrediction),
-             xloc=xloc.bar_index,
-             yloc=yloc.price,
-             style=lcVisualLabelStyle,
-             color=color.new(color.white, 100),
-             textcolor=lcVisualPredictionColor,
-             size=size.normal,
-             textalign=text.align_left
-        )
-    else
-        label.set_y(lcLastVisualLabel, lcVisualLabelY)
-        label.set_text(lcLastVisualLabel, str.tostring(lcPrediction))
-        label.set_style(lcLastVisualLabel, lcVisualLabelStyle)
-        label.set_textcolor(lcLastVisualLabel, lcVisualPredictionColor)
-// ============================================================================
-// END LC BAR VISUALIZATION
-// ============================================================================
 // ============================================================================
 // END V4.1 FILTERS — V3 ENTRY TRIGGERS AND EXIT EXECUTION CONTINUE BELOW
 // ============================================================================
-
 // ============================================================================
 // ENTRY CONDITIONS
 //
@@ -1308,7 +1287,6 @@ if strategy.position_size != 0 and strategy.opentrades > 0
                  entryMessage,
                  alert.freq_all
             )
-
 // ============================================================================
 // V4.1 MAXIMUM LOSS BOX — MATCHES THE EXISTING NAVY/GOLD THEME AND TABLE FONT
 // ============================================================================
