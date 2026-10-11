@@ -1,4 +1,4 @@
-# KAIROS LC Swing Engine V4
+# *KAIROS Lorentzian Swing Engine V4*
 
 ![Pine Script](https://img.shields.io/badge/Pine%20Script-v6-blue)
 ![Python](https://img.shields.io/badge/Python-QuantConnect-3776AB)
@@ -15,7 +15,7 @@
 
 Approximate Nearest Neighbor (ANN) search algorithm is a machine learning and data retrieval technique used to find data points in large datasets that are closest to a query point. [1] **ANN Machine Learning (ML)** in KAIROS classifies today's market state using stored historical examples. Each bar becomes a **feature vector**: a list of normalized indicator readings describing momentum, price deviation, and trend strength. A **label** is the directional value attached to a historical example.
 
-### Euclidean distance versus LC distance
+### Euclidean Distance versus LC Distance
 
 **Euclidean distance** measures straight-line separation between feature vectors. It squares each feature difference, adds those squares, and takes the square root. Large differences can dominate the resulting distance. [2]
 
@@ -32,23 +32,26 @@ The logarithm compresses large differences, changing which historical states loo
 
 ### Approximate neighbors in KAIROS
 
-KAIROS uses **approximate nearest neighbors (ANN)**: a chronological scan with a moving acceptance threshold and a persistent vote queue. Neighbor Count determines how many votes are retained. Unlike conventional **k‑nearest neighbors (kNN)**, it does not sort history to find the exact `k` smallest distances. Instead, **ANN* provides faster, scalable similarity checks. Normalizing features prevents any single indicator’s scale from dominating comparisons. Historical feature comparisons then produce the ML score that confirms a kernel trigger. [1]
+KAIROS uses **approximate nearest neighbors (ANN)**: a chronological scan with a moving acceptance threshold and a persistent vote queue. Neighbor Count determines how many votes are retained. Unlike conventional **k‑nearest neighbors (kNN)**, it does not sort history to find the exact `k` smallest distances. Instead, **ANN** provides faster, scalable similarity checks. Normalizing features prevents any single indicator’s scale from dominating comparisons. Historical feature comparisons then produce the ML score that confirms a kernel trigger. [1]
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/74f3e89e-7cdd-415c-af63-5bdf52336586"
-       style="height:400px; width:auto;" />
+       style="height:500px; width:auto;" />
 </p>
 
 The image shows how KAIROS compares the current candle with historical patterns, collects votes, and uses them to confirm a trade signal.
-1. Start with the idea of k-nearest neighbors (kNN): Each candle becomes a set of indicator values, such as RSI, CCI, and ADX. Think of these values as its coordinates in the first diagram.
-Exact kNN would calculate the distance to historical patterns, sort those distances, and select the k closest patterns.
-2. KAIROS uses an approximate search instead: KAIROS doesn’t run exact kNN first and then convert the result into ANN. ANN replaces the exact neighbor-selection step.
+1. **Start with the idea of k-nearest neighbors (kNN)**: Each candle becomes a set of indicator values, such as:
+- `RSI` (**Relative Strength Index**: *evaluates buying/selling pressure within fixed boundaries*)
+- `CCI` (**Commodity Channel Index**: *detects deviations from statistical moving averages to capture cyclical shifts*)
+- `ADX` (**Average Directional Index**: *measures overall trend strength regardless of price direction*). 
+Think of these values as its coordinates in the first diagram.
+2. **KAIROS uses an approximate search instead**: KAIROS doesn’t run exact kNN first and then convert the result into ANN. ANN replaces the exact neighbor-selection step.
 The gold star represents the current candle. The other dots represent historical patterns. KAIROS compares them using Lorentzian distance, which compresses large differences between indicator values.
 The circled dots illustrate accepted candidates; they aren’t necessarily the closest dots to the star.
-3. Scan historical candidates in time order: The candle strip shows the chronological scan: older → newer.
+3. **Scan historical candidates in time order**: The candle strip shows the chronological scan: older → newer.
 KAIROS checks eligible historical candidates against a moving distance threshold. In your implementation, a candidate can be accepted when its distance is at least the current threshold. The threshold changes as votes enter the queue.
 That makes this a chronological acceptance process rather than a sorted list of the smallest distances.
-4. Keep a bounded queue of votes
+4. **Keep a bounded queue of votes**
 Accepted candidates contribute their stored training labels:
 - +1: long-direction vote
 - −1: short-direction vote
@@ -56,9 +59,9 @@ Accepted candidates contribute their stored training labels:
 Neighbor Count controls how many votes the queue retains. When it exceeds that count, the oldest retained vote is removed. The queue persists between candles, with expired historical votes also removed.
 The image’s example is:
 +1 − 1 + 1 = +1 overall vote
-These are illustrative votes. Your pasted code defaults to 8 retained votes.
+These are illustrative votes. KAIROS defaults to 8 retained votes.
 5. Use the score to confirm the kernel trigger
-A positive score supports a long direction; a negative score supports a short direction. Its magnitude measures the vote balance—not a probability of success.
+A positive score supports a long direction; a negative score supports a short direction. Its magnitude measures the vote balance; not a probability of success.
 KAIROS then checks whether that direction agrees with the kernel flip, the required vote threshold, the trading session, and any other enabled filters.
 When those conditions align, the trade can qualify. The ML vote alone doesn’t trigger an entry.
 
