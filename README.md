@@ -55,8 +55,7 @@ That makes this a chronological acceptance process rather than a sorted list of 
 Accepted candidates contribute their stored training labels:
 - +1: long-direction vote
 - −1: short-direction vote
-- 0: neutral vote
-Neighbor Count controls how many votes the queue retains. When it exceeds that count, the oldest retained vote is removed. The queue persists between candles, with expired historical votes also removed.
+- 0: neutral vote. Neighbor Count controls how many votes the queue retains. When it exceeds that count, the oldest retained vote is removed. The queue persists between candles, with expired historical votes also removed.
 The image’s example is:
 +1 − 1 + 1 = +1 overall vote
 These are illustrative votes. KAIROS defaults to 8 retained votes.
