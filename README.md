@@ -35,7 +35,7 @@ The logarithm compresses large differences, changing which historical states loo
 KAIROS uses **approximate nearest neighbors (ANN)**: a chronological scan with a moving acceptance threshold and a persistent vote queue. Neighbor Count determines how many votes are retained. Unlike conventional **k‑nearest neighbors (kNN)**, it does not sort history to find the exact `k` smallest distances. Instead, **ANN** provides faster, scalable similarity checks. Normalizing features prevents any single indicator’s scale from dominating comparisons. Historical feature comparisons then produce the ML score that confirms a kernel trigger. [1]
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/74f3e89e-7cdd-415c-af63-5bdf52336586"
+  <img src="https://github.com/user-attachments/assets/40ad1a41-a82b-4ba8-badf-5b5a6430f844"
        style="height:500px; width:auto;" />
 </p>
 
