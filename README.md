@@ -15,7 +15,7 @@
 
 Approximate Nearest Neighbor (ANN) search algorithm is a machine learning and data retrieval technique used to find data points in large datasets that are closest to a query point. [1] **ANN Machine Learning (ML)** in KAIROS classifies today's market state using stored historical examples. Each bar becomes a **feature vector**: a list of normalized indicator readings describing momentum, price deviation, and trend strength. A **label** is the directional value attached to a historical example.
 
-### Euclidean Distance versus LC Distance
+### Euclidean Distance versus Lorentzian Distance
 
 **Euclidean distance** measures straight-line separation between feature vectors. It squares each feature difference, adds those squares, and takes the square root. Large differences can dominate the resulting distance. [2]
 
