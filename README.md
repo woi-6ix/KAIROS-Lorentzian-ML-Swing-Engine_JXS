@@ -49,7 +49,7 @@ Think of these values as its coordinates in the first diagram.
 The gold star represents the current candle. The other dots represent historical patterns. KAIROS compares them using Lorentzian distance, which compresses large differences between indicator values.
 The circled dots illustrate accepted candidates; they aren’t necessarily the closest dots to the star.
 3. **Scan historical candidates in time order**: The candle strip shows the chronological scan: older → newer.
-KAIROS checks eligible historical candidates against a moving distance threshold. In your implementation, a candidate can be accepted when its distance is at least the current threshold. The threshold changes as votes enter the queue.
+KAIROS checks eligible historical candidates against a moving distance threshold. In V4 implementation, a candidate can be accepted when its distance is at least the current threshold. The threshold changes as votes enter the queue.
 That makes this a chronological acceptance process rather than a sorted list of the smallest distances.
 4. **Keep a bounded queue of votes**
 Accepted candidates contribute their stored training labels:
