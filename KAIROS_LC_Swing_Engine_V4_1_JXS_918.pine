@@ -758,14 +758,257 @@ bool longLCFilterPass = not useLCFilter or (lcEntryReady and lcDirection == 1)
 bool shortLCFilterPass = not useLCFilter or (lcEntryReady and lcDirection == -1)
 bool longMLPredictionPass = not useLCFilter or not useMLPredictionFilter or (lcEntryReady and lcPrediction >= minMLPredictionVotes)
 bool shortMLPredictionPass = not useLCFilter or not useMLPredictionFilter or (lcEntryReady and lcPrediction <= -minMLPredictionVotes)
+// ============================================================================
+// V4.1 LC REGIME FILTERS + WALK-FORWARD GAUSSIAN HMM
+// LC filters are independent of the LC classification master switch.
+// HMM: 3 Gaussian states, rolling Baum-Welch fits, causal forward probabilities.
+// No future observations, whole-chart fitting, or retroactive trade relabeling.
+// ============================================================================
+string GROUP_REGIME = "V4.1 LC Regime Filters"
+bool useLCRegimeFilter = input.bool(true, "Enable LC Regime Filter", group=GROUP_REGIME, tooltip="Original ml.regime_filter(ohlc4, threshold, enabled). Screens trending vs ranging conditions; not a bullish/bearish direction signal. Independent of Enable LC Direction Filter.")
+float lcRegimeThreshold = input.float(-0.1, "LC Regime Threshold", minval=-10, maxval=10, step=0.1, group=GROUP_REGIME)
+bool useLCVolatilityFilter = input.bool(false, "Enable LC Volatility Filter", group=GROUP_REGIME, tooltip="Original LC ATR(1) > ATR(10) filter. Optional in addition to the existing Volatility Push filter.")
+bool useLCADXFilter = input.bool(false, "Enable LC ADX Filter", group=GROUP_REGIME)
+int lcADXThreshold = input.int(20, "LC ADX Threshold", minval=0, maxval=100, group=GROUP_REGIME)
+// Always evaluate imported TA functions; do not hide them behind lazy AND/OR.
+bool lcRegimePass = ml.regime_filter(ohlc4, lcRegimeThreshold, useLCRegimeFilter)
+bool lcVolatilityPass = ml.filter_volatility(1, 10, useLCVolatilityFilter)
+bool lcADXPass = ml.filter_adx(close, 14, lcADXThreshold, useLCADXFilter)
+bool lcEnvironmentPass = lcRegimePass and lcVolatilityPass and lcADXPass
+
+string GROUP_HMM = "V4.1 Hidden Markov Regimes"
+bool useHMMFilter = input.bool(true, "Enable HMM Regime Filter", group=GROUP_HMM, tooltip="Entry-only directional gate. OFF completely bypasses HMM warmup, confidence and regime checks. Does not change ATR exits or force a trade.")
+int hmmTrainingBars = input.int(300, "Rolling Training Observations", minval=100, maxval=750, group=GROUP_HMM, tooltip="Refits use only the most recent prior observations. This is a rolling bar window, not years of permanently stored training.")
+int hmmRefitEvery = input.int(100, "Refit Every N Observations", minval=25, maxval=2000, group=GROUP_HMM)
+int hmmEMIterations = input.int(5, "Baum-Welch Iterations", minval=1, maxval=10, group=GROUP_HMM, tooltip="Fixed bounded EM iterations. Convergence is not guaranteed. Larger windows/iterations increase Pine runtime.")
+int hmmAtrLength = input.int(14, "Observation ATR Length", minval=2, maxval=200, group=GROUP_HMM)
+float hmmMinimumConfidence = input.float(0.55, "Minimum State Probability", minval=0.34, maxval=0.99, step=0.01, group=GROUP_HMM, tooltip="Filtered probability under the fitted HMM; NOT the probability a trade will win.")
+int hmmConfirmationBars = input.int(2, "Consecutive Regime Bars", minval=1, maxval=20, group=GROUP_HMM)
+float hmmMinimumDrift = input.float(0.05, "Minimum Directional Mean (ATR units)", minval=0, maxval=1, step=0.01, group=GROUP_HMM, tooltip="Bullish state mean must exceed this; bearish mean must be below its negative. Prevents calling the least-negative state bullish, or the least-positive state bearish.")
+float hmmVarianceFloor = input.float(0.01, "Emission Variance Floor", minval=0.001, maxval=1, step=0.001, group=GROUP_HMM)
+bool showRegimeStats = input.bool(true, "Show Regime Rows in Statistics", group=GROUP_HMM)
+bool showHMMBackground = input.bool(false, "Show HMM Background", group=GROUP_HMM)
+bool showHMMDataWindow = input.bool(true, "Show HMM Data Window Values", group=GROUP_HMM)
+
+// Row-major transitions: A[i * 3 + j] = P(state j | previous state i).
+f_hmmLogEmission(float observation, float mean, float variance) =>
+    -0.5 * (math.log(2.0 * math.pi * variance) + math.pow(observation - mean, 2) / variance)
+
+f_hmmEmissions(float observation, array<float> means, array<float> variances) =>
+    array<float> emissions = array.new<float>(3, 0.0)
+    float maxLog = -1e100
+    for state = 0 to 2
+        float logValue = f_hmmLogEmission(observation, array.get(means, state), array.get(variances, state))
+        array.set(emissions, state, logValue)
+        maxLog := math.max(maxLog, logValue)
+    // Common emission scaling cancels in all normalized probabilities.
+    for state = 0 to 2
+        array.set(emissions, state, math.exp(array.get(emissions, state) - maxLog))
+    emissions
+
+f_hmmForward(float observation, array<float> previous, array<float> means, array<float> variances, array<float> transitions) =>
+    array<float> emissions = f_hmmEmissions(observation, means, variances)
+    array<float> posterior = array.new<float>(3, 0.0)
+    float total = 0.0
+    for nextState = 0 to 2
+        float prior = 0.0
+        for previousState = 0 to 2
+            prior += array.get(previous, previousState) * array.get(transitions, previousState * 3 + nextState)
+        float weight = prior * array.get(emissions, nextState)
+        array.set(posterior, nextState, weight)
+        total += weight
+    for state = 0 to 2
+        array.set(posterior, state, array.get(posterior, state) / math.max(total, 1e-100))
+    posterior
+
+f_hmmFit(array<float> observations, array<float> means, array<float> variances, array<float> transitions, int iterations, float varianceFloor) =>
+    int sampleCount = array.size(observations)
+    float sampleMean = array.avg(observations)
+    float sampleVariance = math.max(array.variance(observations), varianceFloor)
+    // Deterministic initialization on prior data only. No random seed or future fit.
+    for state = 0 to 2
+        array.set(means, state, sampleMean + (state - 1) * math.sqrt(sampleVariance))
+        array.set(variances, state, sampleVariance)
+        for nextState = 0 to 2
+            array.set(transitions, state * 3 + nextState, state == nextState ? 0.95 : 0.025)
+    array<float> startProbability = array.new<float>(3, 1.0 / 3.0)
+    array<float> alpha = array.new<float>(sampleCount * 3, 0.0)
+    array<float> emissions = array.new<float>(sampleCount * 3, 0.0)
+    array<float> scales = array.new<float>(sampleCount, 0.0)
+    for iteration = 0 to iterations - 1
+        // Forward pass with per-observation scaling.
+        for sample = 0 to sampleCount - 1
+            array<float> emission = f_hmmEmissions(array.get(observations, sample), means, variances)
+            float total = 0.0
+            for state = 0 to 2
+                float prior = array.get(startProbability, state)
+                if sample > 0
+                    prior := 0.0
+                    for previousState = 0 to 2
+                        prior += array.get(alpha, (sample - 1) * 3 + previousState) * array.get(transitions, previousState * 3 + state)
+                float weight = prior * array.get(emission, state)
+                array.set(emissions, sample * 3 + state, array.get(emission, state))
+                array.set(alpha, sample * 3 + state, weight)
+                total += weight
+            total := math.max(total, 1e-100)
+            array.set(scales, sample, total)
+            for state = 0 to 2
+                array.set(alpha, sample * 3 + state, array.get(alpha, sample * 3 + state) / total)
+        array<float> occupancy = array.new<float>(3, 0.0)
+        array<float> firstMoment = array.new<float>(3, 0.0)
+        array<float> secondMoment = array.new<float>(3, 0.0)
+        array<float> transitionCounts = array.new<float>(9, 0.0)
+        array<float> beta = array.new<float>(3, 1.0)
+        // Backward pass exists ONLY inside the historical training window.
+        // It never revises emitted historical regime values or previous trades.
+        int sample = sampleCount - 1
+        while sample >= 0
+            float gammaTotal = 0.0
+            for state = 0 to 2
+                gammaTotal += array.get(alpha, sample * 3 + state) * array.get(beta, state)
+            float observation = array.get(observations, sample)
+            for state = 0 to 2
+                float gamma = array.get(alpha, sample * 3 + state) * array.get(beta, state) / math.max(gammaTotal, 1e-100)
+                array.set(occupancy, state, array.get(occupancy, state) + gamma)
+                array.set(firstMoment, state, array.get(firstMoment, state) + gamma * observation)
+                array.set(secondMoment, state, array.get(secondMoment, state) + gamma * observation * observation)
+                if sample == 0
+                    array.set(startProbability, state, gamma)
+            if sample > 0
+                array<float> previousBeta = array.new<float>(3, 0.0)
+                array<float> xi = array.new<float>(9, 0.0)
+                float xiTotal = 0.0
+                for previousState = 0 to 2
+                    float betaSum = 0.0
+                    for nextState = 0 to 2
+                        float link = array.get(transitions, previousState * 3 + nextState) * array.get(emissions, sample * 3 + nextState) * array.get(beta, nextState)
+                        betaSum += link
+                        float weight = array.get(alpha, (sample - 1) * 3 + previousState) * link
+                        array.set(xi, previousState * 3 + nextState, weight)
+                        xiTotal += weight
+                    array.set(previousBeta, previousState, betaSum / array.get(scales, sample))
+                for index = 0 to 8
+                    array.set(transitionCounts, index, array.get(transitionCounts, index) + array.get(xi, index) / math.max(xiTotal, 1e-100))
+                beta := previousBeta
+            sample -= 1
+        // Gaussian M-step and lightly regularized transition M-step.
+        for state = 0 to 2
+            float weight = array.get(occupancy, state)
+            if weight > 1e-6
+                float mean = array.get(firstMoment, state) / weight
+                float variance = array.get(secondMoment, state) / weight - mean * mean
+                array.set(means, state, mean)
+                array.set(variances, state, math.max(variance, varianceFloor))
+            float rowTotal = 0.0
+            for nextState = 0 to 2
+                // Small positive pseudocount prevents zero-probability transitions.
+                float count = array.get(transitionCounts, state * 3 + nextState) + 0.01
+                array.set(transitions, state * 3 + nextState, count)
+                rowTotal += count
+            for nextState = 0 to 2
+                int index = state * 3 + nextState
+                array.set(transitions, index, array.get(transitions, index) / rowTotal)
+    // Sort latent states by learned mean, permuting BOTH transition dimensions.
+    // State 0 = lowest mean; state 1 = middle mean; state 2 = highest mean.
+    array<int> stateOrder = array.sort_indices(means, order.ascending)
+    array<float> oldMeans = array.copy(means)
+    array<float> oldVariances = array.copy(variances)
+    array<float> oldTransitions = array.copy(transitions)
+    array<float> sortedStart = array.new<float>(3, 0.0)
+    for state = 0 to 2
+        int oldState = array.get(stateOrder, state)
+        array.set(means, state, array.get(oldMeans, oldState))
+        array.set(variances, state, array.get(oldVariances, oldState))
+        array.set(sortedStart, state, array.get(startProbability, oldState))
+        for nextState = 0 to 2
+            array.set(transitions, state * 3 + nextState, array.get(oldTransitions, oldState * 3 + array.get(stateOrder, nextState)))
+    // Refilter prior window under final fitted parameters to obtain P(S[t-1]).
+    array<float> tail = array.copy(sortedStart)
+    for sampleIndex = 0 to sampleCount - 1
+        if sampleIndex == 0
+            array<float> emission = f_hmmEmissions(array.get(observations, sampleIndex), means, variances)
+            float total = 0.0
+            for state = 0 to 2
+                float weight = array.get(sortedStart, state) * array.get(emission, state)
+                array.set(tail, state, weight)
+                total += weight
+            for state = 0 to 2
+                array.set(tail, state, array.get(tail, state) / math.max(total, 1e-100))
+        else
+            tail := f_hmmForward(array.get(observations, sampleIndex), tail, means, variances, transitions)
+    tail
+
+float hmmATR = ta.atr(hmmAtrLength)
+// Prior ATR sets the scale; current return is available only at confirmed close.
+// Clip extreme observations for numerical robustness, not to cap trading loss.
+float hmmObservation = not na(hmmATR[1]) and hmmATR[1] > 0 and not na(close[1]) ? math.max(-6.0, math.min(6.0, (close - close[1]) / hmmATR[1])) : na
+varip array<float> hmmHistory = array.new<float>()
+varip array<float> hmmMeans = array.new<float>(3, 0.0)
+varip array<float> hmmVariances = array.new<float>(3, 1.0)
+varip array<float> hmmTransitions = array.new<float>(9, 1.0 / 3.0)
+varip array<float> hmmPosterior = array.new<float>(3, 1.0 / 3.0)
+varip int hmmLastProcessedBar = na
+varip int hmmPredictionBar = na
+varip int hmmObservationsSeen = 0
+varip int hmmLastFitObservation = na
+varip int hmmFitCount = 0
+varip int hmmState = 1
+varip int hmmStateRun = 0
+varip float hmmConfidence = na
+varip bool hmmFitted = false
+if useHMMFilter and barstate.isconfirmed and not lcFillRecalculation and (na(hmmLastProcessedBar) or hmmLastProcessedBar != bar_index)
+    hmmLastProcessedBar := bar_index
+    hmmPredictionBar := na
+    if not na(hmmObservation)
+        bool refitDue = not hmmFitted or hmmObservationsSeen - nz(hmmLastFitObservation, 0) >= hmmRefitEvery
+        if array.size(hmmHistory) == hmmTrainingBars and refitDue
+            // Current observation is not yet in the training window.
+            hmmPosterior := f_hmmFit(hmmHistory, hmmMeans, hmmVariances, hmmTransitions, hmmEMIterations, hmmVarianceFloor)
+            hmmFitted := true
+            hmmLastFitObservation := hmmObservationsSeen
+            hmmFitCount += 1
+            // Require persistence again after refit; do not splice state runs.
+            hmmStateRun := 0
+        if hmmFitted
+            hmmPosterior := f_hmmForward(hmmObservation, hmmPosterior, hmmMeans, hmmVariances, hmmTransitions)
+            int nextState = 0
+            for state = 1 to 2
+                if array.get(hmmPosterior, state) > array.get(hmmPosterior, nextState)
+                    nextState := state
+            hmmStateRun := nextState == hmmState ? hmmStateRun + 1 : 1
+            hmmState := nextState
+            hmmConfidence := array.get(hmmPosterior, nextState)
+            hmmPredictionBar := bar_index
+        // Bound history and append only AFTER fitting/scoring this bar.
+        array.push(hmmHistory, hmmObservation)
+        if array.size(hmmHistory) > hmmTrainingBars
+            array.shift(hmmHistory)
+        hmmObservationsSeen += 1
+    else
+        hmmStateRun := 0
+bool hmmModelReady = useHMMFilter and hmmFitted and not na(hmmPredictionBar) and hmmPredictionBar == bar_index
+bool hmmEntryReady = hmmModelReady and not lcFillRecalculation and hmmStateRun >= hmmConfirmationBars and hmmConfidence >= hmmMinimumConfidence
+bool longHMMFilterPass = not useHMMFilter or (hmmEntryReady and hmmState == 2 and array.get(hmmMeans, 2) > hmmMinimumDrift)
+bool shortHMMFilterPass = not useHMMFilter or (hmmEntryReady and hmmState == 0 and array.get(hmmMeans, 0) < -hmmMinimumDrift)
+// Middle-mean state is a neutral/range proxy, not a proven economic regime.
+string hmmStateName = hmmState == 0 and array.get(hmmMeans, 0) < -hmmMinimumDrift ? "BEARISH" : hmmState == 2 and array.get(hmmMeans, 2) > hmmMinimumDrift ? "BULLISH" : "NEUTRAL / RANGE"
+color hmmRegimeColor = hmmStateName == "BEARISH" ? cRed : hmmStateName == "BULLISH" ? cGreen : cGray
+bgcolor(useHMMFilter and showHMMBackground and hmmModelReady ? color.new(hmmRegimeColor, 92) : na, title="KAIROS V4.1 HMM Regime")
+plot(useHMMFilter and showHMMDataWindow and hmmModelReady ? hmmState - 1 : na, title="KAIROS V4.1 HMM State (-1/0/+1)", display=display.data_window)
+plot(useHMMFilter and showHMMDataWindow and hmmModelReady ? hmmConfidence * 100 : na, title="KAIROS V4.1 HMM State Probability (%)", display=display.data_window)
+plot(useHMMFilter and showHMMDataWindow and hmmModelReady ? array.get(hmmPosterior, 0) * 100 : na, title="KAIROS V4.1 HMM Bear Probability (%)", display=display.data_window)
+plot(useHMMFilter and showHMMDataWindow and hmmModelReady ? array.get(hmmPosterior, 1) * 100 : na, title="KAIROS V4.1 HMM Neutral Probability (%)", display=display.data_window)
+plot(useHMMFilter and showHMMDataWindow and hmmModelReady ? array.get(hmmPosterior, 2) * 100 : na, title="KAIROS V4.1 HMM Bull Probability (%)", display=display.data_window)
+// END V4.1 REGIME MODULE
+
 float emaEntryValue = ta.ema(close, emaEntryLength)
 float smaEntryValue = ta.sma(close, smaEntryLength)
 bool longEMAEntryPass = not useEMAEntryFilter or (not na(emaEntryValue) and close > emaEntryValue)
 bool shortEMAEntryPass = not useEMAEntryFilter or (not na(emaEntryValue) and close < emaEntryValue)
 bool longSMAEntryPass = not useSMAEntryFilter or (not na(smaEntryValue) and close > smaEntryValue)
 bool shortSMAEntryPass = not useSMAEntryFilter or (not na(smaEntryValue) and close < smaEntryValue)
-bool longV4FiltersPass = longLCFilterPass and longMLPredictionPass and longEMAEntryPass and longSMAEntryPass
-bool shortV4FiltersPass = shortLCFilterPass and shortMLPredictionPass and shortEMAEntryPass and shortSMAEntryPass
+bool longV4FiltersPass = longLCFilterPass and longMLPredictionPass and longEMAEntryPass and longSMAEntryPass and lcEnvironmentPass and longHMMFilterPass
+bool shortV4FiltersPass = shortLCFilterPass and shortMLPredictionPass and shortEMAEntryPass and shortSMAEntryPass and lcEnvironmentPass and shortHMMFilterPass
 plot(useEMAEntryFilter and showEMAEntryLine ? emaEntryValue : na, title="KAIROS V4.1 EMA Entry Filter", color=color.new(cGold, 25), linewidth=1)
 plot(useSMAEntryFilter and showSMAEntryLine ? smaEntryValue : na, title="KAIROS V4.1 SMA Entry Filter", color=color.new(cSilver, 25), linewidth=1)
 plot(useLCFilter and showMLDataWindow and lcModelReady ? lcPrediction : na, title="KAIROS V4.1 ML Prediction", display=display.data_window)
@@ -1107,7 +1350,7 @@ color statsBorder = color.new(cGold, 70)
 var table statsTable = table.new(
      statsTablePosition,
      2,
-     17,
+     25,
      bgcolor=statsBackground,
      frame_color=color.new(cGold, 45),
      frame_width=2,
@@ -1215,8 +1458,22 @@ if barstate.islastconfirmedhistory or barstate.islast
             f_kairosStatsRow(statsTable, 16, "SMA " + str.tostring(smaEntryLength), smaFilterText, useSMAEntryFilter ? (close > smaEntryValue ? cGreen : close < smaEntryValue ? cRed : cGray) : cGray, statsTextSize)
         else
             table.clear(statsTable, 0, 12, 1, 16)
+        if showRegimeStats
+            string lcRegimeText = not useLCRegimeFilter ? "DISABLED" : lcRegimePass ? "PASS / TRENDING" : "BLOCK / RANGE"
+            string hmmStatusText = not useHMMFilter ? "DISABLED" : not hmmModelReady ? "WARMUP / NO DATA" : hmmStateName
+            string hmmGateText = not useHMMFilter ? "DISABLED" : not hmmModelReady ? "WARMUP" : hmmConfidence < hmmMinimumConfidence ? "LOW CONFIDENCE" : hmmStateRun < hmmConfirmationBars ? "CONFIRMING" : longHMMFilterPass ? "LONG ONLY" : shortHMMFilterPass ? "SHORT ONLY" : "BLOCK / NEUTRAL"
+            f_kairosStatsRow(statsTable, 17, "LC Regime", lcRegimeText, not useLCRegimeFilter ? cGray : lcRegimePass ? cGreen : cRed, statsTextSize)
+            f_kairosStatsRow(statsTable, 18, "LC Volatility / ADX", (not useLCVolatilityFilter ? "OFF" : lcVolatilityPass ? "PASS" : "BLOCK") + " / " + (not useLCADXFilter ? "OFF" : lcADXPass ? "PASS" : "BLOCK"), color.white, statsTextSize)
+            f_kairosStatsRow(statsTable, 19, "HMM Regime", hmmStatusText, useHMMFilter and hmmModelReady ? hmmRegimeColor : cGray, statsTextSize)
+            f_kairosStatsRow(statsTable, 20, "HMM State Probability", useHMMFilter and hmmModelReady ? f_kairosNumber(hmmConfidence * 100) + "%" : "—", color.white, statsTextSize)
+            f_kairosStatsRow(statsTable, 21, "HMM Entry Gate", hmmGateText, longHMMFilterPass and useHMMFilter ? cGreen : shortHMMFilterPass and useHMMFilter ? cRed : cGray, statsTextSize)
+            f_kairosStatsRow(statsTable, 22, "HMM History / Fits", not useHMMFilter ? "DISABLED" : str.tostring(array.size(hmmHistory)) + "/" + str.tostring(hmmTrainingBars) + " · " + str.tostring(hmmFitCount), color.white, statsTextSize)
+            f_kairosStatsRow(statsTable, 23, "HMM Means B / N / U", useHMMFilter and hmmFitted ? f_kairosNumber(array.get(hmmMeans, 0)) + " / " + f_kairosNumber(array.get(hmmMeans, 1)) + " / " + f_kairosNumber(array.get(hmmMeans, 2)) : "—", color.white, statsTextSize)
+            f_kairosStatsRow(statsTable, 24, "HMM Std B / N / U", useHMMFilter and hmmFitted ? f_kairosNumber(math.sqrt(array.get(hmmVariances, 0))) + " / " + f_kairosNumber(math.sqrt(array.get(hmmVariances, 1))) + " / " + f_kairosNumber(math.sqrt(array.get(hmmVariances, 2))) : "—", color.white, statsTextSize)
+        else
+            table.clear(statsTable, 0, 17, 1, 24)
     else
-        table.clear(statsTable, 0, 0, 1, 16)
+        table.clear(statsTable, 0, 0, 1, 24)
 // ============================================================================
 // ============================================================================
 // EDITABLE BOTTOM WATERMARK — BELLEROPHONTES GOLD THEME
