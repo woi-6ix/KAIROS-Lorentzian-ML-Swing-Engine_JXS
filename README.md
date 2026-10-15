@@ -7,7 +7,7 @@
 
 **KAIROS V4 is a TradingView Strategy** combining Nadaraya–Watson kernel swing triggers with optional Lorentzian Classification (LC), ML vote confirmation, and EMA/SMA entry filters. It includes slope/Volatility Push (VP) markers, fixed ATR exits, editable shares, cash loss control, session, alerts, and a navy/gold theme.
 
-**Inspiration:** KAIROS was inspired by **jdehorty's open-source Lorentzian Classification and kernel regression code**. KAIROS V4 has adapted this foundation into this strategy's entry confirmations, position protection, session controls, and presentation. Original work and supporting sources are linked under References.
+**Inspiration:** KAIROS was inspired by **jdehorty's open-source Lorentzian Classification**. KAIROS V4 has adapted this foundation into this strategy's entry confirmations, position protection, session controls, and presentation. Original work and supporting sources are linked under References.
 
 **Why KAIROS?** Kairos personifies the opportune moment in Greek mythology. The name reflects waiting until the kernel's direction, enabled confirmations, and trading hours align.
 
