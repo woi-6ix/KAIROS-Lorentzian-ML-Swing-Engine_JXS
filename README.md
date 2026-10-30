@@ -1,17 +1,30 @@
-# *KAIROS Lorentzian Swing Engine V4.1*
+# *KAIROS Lorentzian Swing Engine V5*
 
 ![Pine Script](https://img.shields.io/badge/Pine%20Script-v6-blue)
 ![Python](https://img.shields.io/badge/Python-QuantConnect-3776AB)
 ![Platform](https://img.shields.io/badge/Platform-TradingView-black)
 ![License](https://img.shields.io/badge/License-MPL--2.0-purple)
 
-**KAIROS V4.1 is a TradingView Strategy** combining Nadaraya–Watson kernel swing triggers with optional Lorentzian Classification (LC), ML vote confirmation, EMA/SMA entry filters, LC environment filters, and adaptive Hidden Markov Model (HMM) regimes. It includes slope/Volatility Push (VP) markers, fixed ATR exits, editable shares, cash loss control, session settings, filled-entry alerts, LC bar colours/prediction values, and a navy/gold theme.
+**KAIROS V5 is a TradingView Strategy** combining Nadaraya–Watson kernel swing triggers with optional Lorentzian Classification (LC), ML vote confirmation, EMA/SMA entry filters, LC environment filters, and adaptive Hidden Markov Model (HMM) regimes. It includes slope/Volatility Push (VP) markers, fixed ATR exits, editable shares, cash loss control, session settings, filled-entry alerts, LC bar colours/prediction values, a trade-entry checklist, and a navy/gold theme.
 
 **Inspiration:** KAIROS was inspired by **jdehorty's open-source Lorentzian Classification**. KAIROS adapts this foundation into the strategy's entry confirmations, position protection, session controls, and presentation. V4.1 adds a separate Gaussian HMM for directional regime confirmation. Original work and supporting sources are linked under References.
 
 **Why KAIROS?** Kairos personifies the opportune moment in Greek mythology. The name reflects waiting until the kernel's direction, enabled confirmations, and trading hours align.
 
-## Updates in V4.1
+## Updates in LC V5
+
+**V5 adds an entry checklist to the statistics table.** It shows which existing conditions pass for a long or short entry, with a separate view of the checks recorded for the last filled trade. The checklist reads the strategy's entry conditions; it does not add filters or change the inherited trading rules.
+
+| Addition | Function |
+| --- | --- |
+| 21 checklist rows | Direction, session, kernel, slope, VP, LC/ML, averages, regimes, HMM and position/quantity checks |
+| Current bar view | Compare LONG (`L`) and SHORT (`S`) on the latest confirmed decision bar |
+| Last filled trade view | Review the entry-submission checks preserved for an actual filled trade |
+| Status and detail | ✅ / ❌, OFF or WARMUP, with vote counts, slope and HMM values where applicable |
+
+Use the [V5 source](KAIROS_LC_Swing_Engine_V5_JXS_918.pine) for the current version. Checklist settings and the meaning of each status are explained under [V5 entry checklist](#v5-entry-checklist).
+
+### Retained from V4.1
 
 | Addition | Function |
 | --- | --- |
@@ -20,7 +33,7 @@
 | Adaptive three-state Gaussian HMM | Learns return distributions and state transitions, then filters entries by the current regime |
 | Regime diagnostics | Eight additional statistics rows, optional chart background and Data Window probabilities |
 
-The [V4.1 source](KAIROS_LC_Swing_Engine_V4_1_JXS_918.pine) is the current version. The [regime guide](KAIROS_V4_1_REGIMES.md) covers the model, settings and verification in more detail. Regime changes filter new entries; they do not independently trigger orders, alter position size, or add exit rules.
+The [V4.1 source](KAIROS_LC_Swing_Engine_V4_1_JXS_918.pine) remains available as the pre-checklist version. V5 retains its LC environment filters and Gaussian HMM. The [regime guide](KAIROS_V4_1_REGIMES.md) covers the inherited model, settings and verification in more detail. Regime changes filter new entries; they do not independently trigger orders, alter position size, or add exit rules.
 
 ## Overview: How the Machine Learning is Applied
 
@@ -60,7 +73,7 @@ Think of these values as its coordinates in the first diagram.
 The gold star represents the current candle. The other dots represent historical patterns. KAIROS compares them using Lorentzian distance, which compresses large differences between indicator values.
 The circled dots illustrate accepted candidates; they aren’t necessarily the closest dots to the star.
 3. **Scan historical candidates in time order**: The candle strip shows the chronological scan: older → newer.
-KAIROS checks eligible historical candidates against a moving distance threshold. In the V4.1 implementation, a candidate can be accepted when its distance is at least the current threshold. The threshold changes as votes enter the queue.
+KAIROS checks eligible historical candidates against a moving distance threshold. In the current implementation, a candidate can be accepted when its distance is at least the current threshold. The threshold changes as votes enter the queue.
 That makes this a chronological acceptance process rather than a sorted list of the smallest distances.
 4. **Keep a bounded queue of votes**
 Accepted candidates contribute their stored training labels:
@@ -95,7 +108,7 @@ Features are normalized through the imported `MLExtensions/2` library. Each slot
 
 **Feature Slots to Consider** uses the first N slots and their Enable switches. Different RSI settings create distinct features. LC requires at least one active feature.
 
-V4.1 searches prior samples within a bounded rolling history. Its chronological ANN loop accepts distances against a moving threshold, skips historical bar indices divisible by four and retains a bounded vote queue. This is an approximate persistent search, rather than a sorted exact k-nearest-neighbor search; samples can be revisited.
+V5 searches prior samples within a bounded rolling history. Its chronological ANN loop accepts distances against a moving threshold, skips historical bar indices divisible by four and retains a bounded vote queue. This is an approximate persistent search, rather than a sorted exact k-nearest-neighbor search; samples can be revisited.
 
 The original LC label convention is retained: `source[4] < source` gives **−1**, `source[4] > source` gives **+1**, equality gives **0**. These labels use a known historical four-bar comparison, not a newly constructed future-return target. The current sample is added **after** prediction, so it cannot vote on itself.
 
@@ -125,7 +138,7 @@ LC master OFF bypasses the neighbor classifier and its ML vote check. EMA/SMA, L
 
 These checks use the imported `MLExtensions/2` functions. The regime filter evaluates the normalized slope of an adaptive curve to screen trending/ranging conditions; it does not assign long/short direction. The optional volatility filter compares ATR(1) with ATR(10), while the ADX filter tests trend strength. The LC volatility check is separate from the existing Volatility Push module. [8, 9]
 
-| Setting | V4.1 default | Effect |
+| Setting | V5 default | Effect |
 | --- | --- | --- |
 | Enable LC Regime Filter / threshold | ON / −0.1 | Require the original LC trend/range condition on `ohlc4` |
 | Enable LC Volatility Filter | OFF | Require ATR(1) > ATR(10) |
@@ -147,7 +160,7 @@ States are ranked by their fitted mean. Their current probabilities come from **
 
 The signed-mean checks prevent treating an all-negative fit as bullish or an all-positive fit as bearish. These states are statistical return clusters, not verified economic regimes or a separate crisis detector.
 
-| HMM setting | V4.1 default | Effect |
+| HMM setting | V5 default | Effect |
 | --- | --- | --- |
 | Enable HMM Regime Filter | ON | Require a qualified directional state |
 | Rolling Training Observations | 300; range 100–750 | Prior observations used per fit |
@@ -190,11 +203,11 @@ A rejected flip does not become a pending entry. ML, average or regime changes a
 
 VP awards one point each for fast/slow ATR expansion, candle range relative to slow ATR, and volume relative to its moving average. A bullish push also requires an up candle, sufficient body size and a close near its high; a bearish push requires the opposite. The matching push must fall within the backward-looking confirmation window and be newer than the opposing push. At the default score of 2, ATR and range alone can qualify: **volume expansion is not independently mandatory**.
 
-V4.1 uses **chart-timeframe VP and fixed targets**. [V2](KAIROS_V2_Usage.md) separately contains adaptive partial profits and one-minute continuation checks.
+V5 uses **chart-timeframe VP and fixed targets**. [V2](KAIROS_V2_Usage.md) separately contains adaptive partial profits and one-minute continuation checks.
 
 ## Inherited strategy parameters
 
-| Setting | Pine V4.1 default |
+| Setting | Pine V5 default |
 | --- | --- |
 | Trading session / timezone | 09:30–before 15:00 / America/New_York; intraday charts |
 | Longs / shorts / opposite-flip exit / session close | All ON |
@@ -214,7 +227,7 @@ V4.1 uses **chart-timeframe VP and fixed targets**. [V2](KAIROS_V2_Usage.md) sep
 | Entry quantity | 2,500 underlying shares/contracts; editable quantity, not a $2,500 cash budget |
 | Maximum Cash Loss / amount / box | OFF / $500 USD / hidden, bottom left |
 
-These are the current V4.1 source defaults. The separate V4 file and QuantConnect V3 port use different presets.
+These are the current V5 source defaults, inherited from V4.1. The separate V4 file and QuantConnect V3 port use different presets.
 
 ## Position protection and exits
 
@@ -239,10 +252,11 @@ The table uses executed TradingView `strategy.*` results:
 | LC Regime / LC Volatility & ADX | Pass/block status of enabled environment checks |
 | HMM Regime / State Probability / Entry Gate | Current state, winning-state probability and reason entries pass or are blocked |
 | HMM History / Fits / Means / Standard Deviations | Rolling observations, fit count and learned distributions in bearish/neutral/bullish mean order |
+| Entry checklist | Per-condition status for the latest confirmed bar or last filled trade |
 
 Kernel/VP markers, stop/target lines and the loss box are configurable. Table fonts and bottom watermark text, size, font family and color are editable.
 
-| Display setting | V4.1 default | Function |
+| Display setting | V5 default | Function |
 | --- | --- | --- |
 | Show Bar Colours | OFF | Tint confirmed candles by the existing LC prediction |
 | Show Bar Prediction Value | OFF | Show the raw LC vote above positive bars and below negative/neutral bars; up to the 500-label limit |
@@ -252,19 +266,62 @@ Kernel/VP markers, stop/target lines and the loss box are configurable. Table fo
 
 LC colours and labels require the LC classifier to be enabled and ready. They do not affect entries. HMM display controls likewise do not disable the HMM entry filter.
 
-Use **Order fills** alerts for V4.1 order messages. Including **alert() function calls** adds optional filled-entry notifications and can duplicate entry messages. Long/short notification switches are separate. Recreate alerts after code or settings changes.
+### V5 entry checklist
+
+The **ENTRY CHECKLIST** section appears below the existing statistics and regime rows, using the same navy/gold theme and selected table font family. Keep **Show Statistics** enabled to see it.
+
+| Setting under V5 Entry Checklist | Default | Function |
+| --- | --- | --- |
+| Show Entry Checklist in Statistics | ON | Show or hide the checklist section |
+| Checklist View | Current bar | Choose Current bar or Last filled trade |
+| Checklist Font Size | Tiny | Choose Tiny, Small or Normal independently of the main statistics font size |
+
+**Current bar** displays `L` and `S` results side by side. It captures the latest eligible confirmed decision bar before orders, and retains that snapshot through fill recalculations. It does not update on every tick of an open candle. The timestamp is the decision bar's closing time in the selected trading timezone. The final row shows **✅ READY** or **❌ BLOCKED** for each direction; READY describes the entry conditions, not an order-fill confirmation.
+
+**Last filled trade** displays one direction. Checks are captured when an entry is submitted and promoted to this view only after the strategy observes a matching actual fill. This preserves the conditions before position size and fill-callback flags change. The snapshot remains after exit until another entry fills. Hover over a checklist value to see the submission time and actual fill time/price. Before the first recorded fill, the view shows **NO FILLED TRADE**.
+
+| Status | Meaning |
+| --- | --- |
+| ✅ | The enabled check passed for the displayed direction and snapshot |
+| ❌ | The check failed or a required readiness condition was unavailable |
+| OFF | That optional filter was bypassed; it is not a passed check |
+| WARMUP | A dependent check lacks ready model or indicator data |
+| — | No snapshot is available yet |
+
+The 21 rows cover the following:
+
+| Checklist rows | What is checked |
+| --- | --- |
+| Direction enabled; Trading session; Kernel flip | Allowed direction, bar close inside the entry window and a new directional kernel state |
+| Kernel slope | Existing ATR-normalized kernel slope over **Slope Lookback Bars**, compared with the directional threshold |
+| Volatility Push | A qualifying matching push within the confirmation window and newer than the opposing push; displays push age/window |
+| LC ready / neighbors; LC direction; LC vote threshold | Model readiness and retained-vote count, matching classification and the enabled minimum signed net vote |
+| EMA entry filter; SMA entry filter | Close above each enabled average for longs, below for shorts |
+| LC regime; LC volatility; LC ADX | Each independently enabled environment check |
+| HMM ready; HMM direction | Current usable HMM score and the directional latent state |
+| HMM probability; HMM persistence; HMM signed mean | State probability, consecutive-state count and fitted directional mean against their settings |
+| Position eligible; Quantity / cash stop | Position permits an entry/reversal and the requested quantity fits the enabled cash-stop constraint |
+| All entry conditions | Combined entry eligibility in Current bar view; **✅ FILLED** for the saved filled-trade snapshot |
+
+The slope row reports the existing kernel-slope filter; it does not introduce a requirement for every preceding candle to point in the same direction. Vote, slope, VP and HMM details belong to the displayed snapshot, so a last-entry value may differ from the current chart. A gold value indicates mixed long/short pass/fail results; passed values are green, failed values red, and inactive/warmup values gray.
+
+The expanded table can be shortened by hiding the checklist, existing ML rows or regime rows in settings. Changing checklist visibility, view or font size affects display only.
+
+Use **Order fills** alerts for V5 order messages. Including **alert() function calls** adds optional filled-entry notifications and can duplicate entry messages. Long/short notification switches are separate. Recreate alerts after code or settings changes.
 
 ## Note on "repainting"
 
-V4.1 updates the LC classifier and HMM on eligible confirmed bars, excludes the current sample from its own training/prediction step, and guards against duplicate model updates during fill callbacks. HMM scores use causal forward probabilities; later fits do not retrospectively relabel earlier outputs. The kernel uses current/past price inputs.
+V5 updates the LC classifier and HMM on eligible confirmed bars, excludes the current sample from its own training/prediction step, and guards against duplicate model updates during fill callbacks. HMM scores use causal forward probabilities; later fits do not retrospectively relabel earlier outputs. The kernel uses current/past price inputs.
 
 These are source-level design choices, not a guarantee of identical historical and live behavior. KAIROS uses `process_orders_on_close=true` and `calc_on_order_fills=true`; order-fill recalculation, historical intrabar assumptions and `varip` rollback behavior need separate validation. Changing the loaded history, chart or settings rebuilds the rolling models and can change results. [7, 11]
 
 ## Use and validation
 
-Copy [V4.1 Pine](KAIROS_LC_Swing_Engine_V4_1_JXS_918.pine) into TradingView's Pine Editor and add it to a standard intraday chart. Check Strategy Tester with realistic quantity, fees and slippage. Compare the pre-regime baseline, LC regime only, HMM only, and both regime filters using the same chart and costs. Freeze selected settings before evaluating later unseen periods.
+Copy [V5 Pine](KAIROS_LC_Swing_Engine_V5_JXS_918.pine) into TradingView's Pine Editor and add it to a standard intraday chart. Check Strategy Tester with realistic quantity, fees and slippage. Compare the pre-regime baseline, LC regime only, HMM only, and both regime filters using the same chart and costs. Freeze selected settings before evaluating later unseen periods.
 
-The [V4.1 regime guide](KAIROS_V4_1_REGIMES.md) documents the model and numeric/source checks:
+In V5, open **V5 Entry Checklist** in Inputs to select the view and text size. Entry/exit alert messages and the default bottom watermark now identify V5. Recreate existing TradingView alerts when switching scripts.
+
+The [V4.1 regime guide](KAIROS_V4_1_REGIMES.md) documents the inherited model and numeric/source checks. This command targets the V4.1 regime implementation, not the V5 checklist:
 
 ```bash
 python -m unittest discover -s tests -p 'test_kairos_v41_regimes.py' -v
@@ -276,7 +333,7 @@ Pine has per-loop and total execution limits. If HMM processing times out, reduc
 
 ## Separate QuantConnect V3 options port
 
-The [Python options port](quantconnect/kairos_v3_spy_3min_backtest.py) remains **V3**, without the V4/V4.1 neighbor classifier or regime additions. It buys closest-ATM same-day SPY calls/puts with a $2,500 premium budget, using 3-minute signals and one-minute SPY exit checks.
+The [Python options port](quantconnect/kairos_v3_spy_3min_backtest.py) remains **V3**, without the V4/V4.1 neighbor classifier, regime additions or V5 checklist. It buys closest-ATM same-day SPY calls/puts with a $2,500 premium budget, using 3-minute signals and one-minute SPY exit checks.
 
 Its preset differs from Pine: smoothing ON/lag 6, slope OFF, VP window 10, opposite-flip exit OFF, stop 1.5× ATR, target 0.45R, cash cap OFF. Corrected options-mode performance remains unverified. See [backtest settings and results](quantconnect/KAIROS_V3_BACKTEST.md).
 
@@ -299,4 +356,4 @@ Its preset differs from Pine: smoothing ON/lag 6, slope OFF, VP window 10, oppos
 11. **TradingView:** [Pine execution model](https://www.tradingview.com/pine-script-docs/language/execution-model/) — confirmed bars, rollback, persistent variables and chart reloads.
 12. **TradingView:** [Pine limitations](https://www.tradingview.com/pine-script-docs/writing/limitations/) — runtime and loop budgets relevant to rolling HMM fits.
 
-The research papers and library documentation provide mathematical background. They do not validate KAIROS's trading performance. Current implementation details and defaults are documented in the [V4.1 source](KAIROS_LC_Swing_Engine_V4_1_JXS_918.pine) and [regime guide](KAIROS_V4_1_REGIMES.md).
+The research papers and library documentation provide mathematical background. They do not validate KAIROS's trading performance. Current implementation details and defaults are documented in the [V5 source](KAIROS_LC_Swing_Engine_V5_JXS_918.pine); the [regime guide](KAIROS_V4_1_REGIMES.md) covers the inherited V4.1 model.
