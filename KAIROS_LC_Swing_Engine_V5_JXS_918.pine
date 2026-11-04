@@ -594,7 +594,7 @@ bool entryQuantityReady = entryQuantity >= syminfo.mincontract and (not enableCa
 string GROUP_LC = "V5 Lorentzian Classification"
 bool useLCFilter = input.bool(true, "Enable LC Direction Filter", group=GROUP_LC, tooltip="Master switch for LC classification and its ML prediction confirmation. OFF bypasses both, leaving V3 filters plus any enabled EMA/SMA filters.")
 int lcNeighborsCount = input.int(8, "Neighbor Count", minval=1, maxval=100, group=GROUP_LC)
-int lcHistoryBars = input.int(2000, "Maximum Training History (bars)", minval=100, maxval=5000, group=GROUP_LC, tooltip="Rolling past-bar window for ANN candidates. Buffers never exceed this size. Large histories increase computation time.")
+int lcHistoryBars = input.int(5000, "Maximum Training History (bars)", minval=100, maxval=5000, group=GROUP_LC, tooltip="Rolling past-bar window for ANN candidates. Buffers never exceed this size. Large histories increase computation time.")
 int lcFeatureCount = input.int(5, "Feature Slots to Consider", minval=1, maxval=5, group=GROUP_LC, tooltip="Use the first N feature slots, then apply their individual Enable switches. At least one considered slot must be enabled when LC is on.")
 float lcTrainingSource = input.source(close, "Training Label Source", group=GROUP_LC)
 string GROUP_PREDICTION = "V5 ML Prediction Confirmation"
