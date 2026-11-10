@@ -11,6 +11,10 @@
 
 **Why KAIROS?** Kairos personifies the opportune moment in Greek mythology. The name reflects waiting until the kernel's direction, enabled confirmations, and trading hours align.
 
+<img width="958" height="599" alt="image" src="https://github.com/user-attachments/assets/b7bf11e2-afeb-473b-be74-310baa72ad6a" />
+<img width="959" height="599" alt="image" src="https://github.com/user-attachments/assets/9edb4e66-16b9-43d7-82c2-5141d29abc8f" />
+
+
 ## Updates in LC V5
 
 **V5 adds an entry checklist to the statistics table.** It shows which existing conditions pass for a long or short entry, with a separate view of the checks recorded for the last filled trade. The checklist reads the strategy's entry conditions; it does not add filters or change the inherited trading rules.
