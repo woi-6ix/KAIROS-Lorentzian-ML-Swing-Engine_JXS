@@ -83,8 +83,16 @@ int endMinute = input.int(
      group=GROUP_SESSION,
      inline="end"
 )
+// Date-specific 2026-11-10 override; the saved user session input resumes tomorrow.
+bool nov10Override = (
+     year(time_close, tradeTimezone) == 2026 and
+     month(time_close, tradeTimezone) == 11 and
+     dayofmonth(time_close, tradeTimezone) == 10
+)
+int effectiveEndHour = nov10Override ? 15 : endHour
+int effectiveEndMinute = nov10Override ? 30 : endMinute
 int startOfDay = startHour * 60 + startMinute
-int endOfDay = endHour * 60 + endMinute
+int endOfDay = effectiveEndHour * 60 + effectiveEndMinute
 bool sessionValid = startOfDay < endOfDay
 int barCloseMinute =
      hour(time_close, tradeTimezone) * 60 +
@@ -101,8 +109,8 @@ int cutoffTimestamp = timestamp(
      year(time_close, tradeTimezone),
      month(time_close, tradeTimezone),
      dayofmonth(time_close, tradeTimezone),
-     endHour,
-     endMinute
+     effectiveEndHour,
+     effectiveEndMinute
 )
 bool sessionCutoffBar = (
      timeframe.isintraday and
