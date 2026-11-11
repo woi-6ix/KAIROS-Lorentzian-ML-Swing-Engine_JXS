@@ -3,7 +3,8 @@
 ![Pine Script](https://img.shields.io/badge/Pine%20Script-v6-blue)
 ![Python](https://img.shields.io/badge/Python-QuantConnect-3776AB)
 ![Platform](https://img.shields.io/badge/Platform-TradingView-black)
-![License](https://img.shields.io/badge/License-MPL--2.0-purple)
+![Source License](https://img.shields.io/badge/Source-MPL--2.0-purple)
+![Original Materials](https://img.shields.io/badge/Original%20Materials-Rights%20Reserved-blue)
 
 **KAIROS V5 is a TradingView Strategy** combining Nadaraya–Watson kernel swing triggers with optional Lorentzian Classification (LC), ML vote confirmation, EMA/SMA entry filters, LC environment filters, and adaptive Hidden Markov Model (HMM) regimes. It includes slope/Volatility Push (VP) markers, fixed ATR exits, editable shares, cash loss control, session settings, filled-entry alerts, LC bar colours/prediction values, a trade-entry checklist, and a navy/gold theme.
 
@@ -343,7 +344,7 @@ Its preset differs from Pine: smoothing ON/lag 6, slope OFF, VP window 10, oppos
 
 ## Author and license
 
-**Author:** JXS_918 · [@woi-6ix](https://github.com/woi-6ix). Adapted code is covered by [MPL 2.0](LICENSE); see [third-party notices](THIRD_PARTY_NOTICES.md). [V3 source](KAIROS_LC_Swing_Engine_V3_JXS_918.pine) and earlier KAIROS versions remain available.
+**Author:** JXS_918 · [@woi-6ix](https://github.com/woi-6ix). Adapted source code remains under [MPL 2.0](LICENSE), including modifications to MPL-covered files; see [third-party notices](THIRD_PARTY_NOTICES.md). Separately owned original documentation and branding are **All Rights Reserved** where applicable; see [rights and licensing notice](RIGHTS_AND_LICENSING.md). Prior open-source grants remain effective. [V3 source](KAIROS_LC_Swing_Engine_V3_JXS_918.pine) and earlier KAIROS versions remain available.
 
 ## References
 
