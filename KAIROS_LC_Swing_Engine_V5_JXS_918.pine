@@ -100,8 +100,14 @@ bool texasWindow = (
 )
 int effectiveStartHour = texasWindow ? 9 : startHour
 int effectiveStartMinute = texasWindow ? 35 : startMinute
-int effectiveEndHour = nov10Override ? 15 : endHour
-int effectiveEndMinute = nov10Override ? 30 : endMinute
+bool thanksEarlyClose = (
+     year(time_close, tradeTimezone) == 2026 and
+     month(time_close, tradeTimezone) == 11 and
+     dayofmonth(time_close, tradeTimezone) == 27
+)
+// US equities close at 13:00 ET on 2026-11-27; exit 15 min early.
+int effectiveEndHour = thanksEarlyClose ? 12 : (nov10Override ? 15 : endHour)
+int effectiveEndMinute = thanksEarlyClose ? 45 : (nov10Override ? 30 : endMinute)
 int startOfDay = effectiveStartHour * 60 + effectiveStartMinute
 int endOfDay = effectiveEndHour * 60 + effectiveEndMinute
 bool sessionValid = startOfDay < endOfDay
