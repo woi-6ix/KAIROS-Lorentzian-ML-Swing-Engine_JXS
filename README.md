@@ -27,7 +27,7 @@
 | Last filled trade view | Review the entry-submission checks preserved for an actual filled trade |
 | Status and detail | ✅ / ❌, OFF or WARMUP, with vote counts, slope and HMM values where applicable |
 
-Use the [V5 source](KAIROS_LC_Swing_Engine_V5_JXS_918.pine) for the current version. Checklist settings and the meaning of each status are explained under [V5 entry checklist](#v5-entry-checklist).
+Use the [V5 source](KAIROS_LC_Swing_Engine_V5_JXS_918.pine) for the current version. **Temporary Texas session (Nov 16–Dec 1, 2026 inclusive):** with Trading Session timezone set to `America/New_York`, V5 entries begin at **09:35 ET (08:35 CT)** and the previously saved **14:45 ET (13:45 CT)** cutoff is unchanged. Friday Nov 27 has a special **12:45 ET** early-close cutoff (NYSE closes 13:00 ET). The normal saved session inputs resume on **December 2**. A GitHub Pine change does **not** update an existing TradingView chart/alert: upload/paste the updated source to TradingView, recreate the webhook-enabled strategy alert with the same secure configuration, disable the old alert to avoid duplicates, and check the new expiry extends past Dec 1. No Windows PAPER worker is updated by a Pine/GitHub edit. Checklist settings and the meaning of each status are explained under [V5 entry checklist](#v5-entry-checklist).
 
 ### Retained from V4.1
 
