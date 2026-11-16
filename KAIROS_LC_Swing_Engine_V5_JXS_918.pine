@@ -89,26 +89,9 @@ bool nov10Override = (
      month(time_close, tradeTimezone) == 11 and
      dayofmonth(time_close, tradeTimezone) == 10
 )
-// Temporary Texas hours, inclusive Nov 16-Dec 1, 2026: entries start at
-// 09:35 ET (08:35 CT). Existing 14:45 ET end input remains unchanged.
-// Starting Dec 2, automatically return to the saved user start inputs.
-bool texasWindow = (
-     tradeTimezone == "America/New_York" and
-     year(time_close, tradeTimezone) == 2026 and
-     ((month(time_close, tradeTimezone) == 11 and dayofmonth(time_close, tradeTimezone) >= 16) or
-      (month(time_close, tradeTimezone) == 12 and dayofmonth(time_close, tradeTimezone) <= 1))
-)
-int effectiveStartHour = texasWindow ? 9 : startHour
-int effectiveStartMinute = texasWindow ? 35 : startMinute
-bool thanksEarlyClose = (
-     year(time_close, tradeTimezone) == 2026 and
-     month(time_close, tradeTimezone) == 11 and
-     dayofmonth(time_close, tradeTimezone) == 27
-)
-// US equities close at 13:00 ET on 2026-11-27; exit 15 min early.
-int effectiveEndHour = thanksEarlyClose ? 12 : (nov10Override ? 15 : endHour)
-int effectiveEndMinute = thanksEarlyClose ? 45 : (nov10Override ? 30 : endMinute)
-int startOfDay = effectiveStartHour * 60 + effectiveStartMinute
+int effectiveEndHour = nov10Override ? 15 : endHour
+int effectiveEndMinute = nov10Override ? 30 : endMinute
+int startOfDay = startHour * 60 + startMinute
 int endOfDay = effectiveEndHour * 60 + effectiveEndMinute
 bool sessionValid = startOfDay < endOfDay
 int barCloseMinute =
