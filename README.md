@@ -12,34 +12,6 @@
 
 **Why KAIROS?** Kairos personifies the opportune moment in Greek mythology. The name reflects waiting until the kernel's direction, enabled confirmations, and trading hours align.
 
-<img width="958" height="599" alt="image" src="https://github.com/user-attachments/assets/b7bf11e2-afeb-473b-be74-310baa72ad6a" />
-<img width="959" height="599" alt="image" src="https://github.com/user-attachments/assets/9edb4e66-16b9-43d7-82c2-5141d29abc8f" />
-
-
-## Updates in LC V5
-
-**V5 adds an entry checklist to the statistics table.** It shows which existing conditions pass for a long or short entry, with a separate view of the checks recorded for the last filled trade. The checklist reads the strategy's entry conditions; it does not add filters or change the inherited trading rules.
-
-| Addition | Function |
-| --- | --- |
-| 21 checklist rows | Direction, session, kernel, slope, VP, LC/ML, averages, regimes, HMM and position/quantity checks |
-| Current bar view | Compare LONG (`L`) and SHORT (`S`) on the latest confirmed decision bar |
-| Last filled trade view | Review the entry-submission checks preserved for an actual filled trade |
-| Status and detail | ✅ / ❌, OFF or WARMUP, with vote counts, slope and HMM values where applicable |
-
-Use the [V5 source](KAIROS_LC_Swing_Engine_V5_JXS_918.pine) for the current version. Checklist settings and the meaning of each status are explained under [V5 entry checklist](#v5-entry-checklist).
-
-### Retained from V4.1
-
-| Addition | Function |
-| --- | --- |
-| LC bar colours / prediction values | Optional candle tint and raw ML vote labels |
-| LC regime, volatility and ADX filters | Independent checks for trend/range conditions, ATR expansion and trend strength |
-| Adaptive three-state Gaussian HMM | Learns return distributions and state transitions, then filters entries by the current regime |
-| Regime diagnostics | Eight additional statistics rows, optional chart background and Data Window probabilities |
-
-The [V4.1 source](KAIROS_LC_Swing_Engine_V4_1_JXS_918.pine) remains available as the pre-checklist version. V5 retains its LC environment filters and Gaussian HMM. The [regime guide](KAIROS_V4_1_REGIMES.md) covers the inherited model, settings and verification in more detail. Regime changes filter new entries; they do not independently trigger orders, alter position size, or add exit rules.
-
 ## Overview: How the Machine Learning is Applied
 
 **Machine learning (ML)** in KAIROS has two separate parts: a **Lorentzian-distance approximate neighbor classifier**, derived from k-nearest neighbors (kNN), and an **unsupervised three-state Gaussian HMM** for regimes. The classifier combines labels from stored historical examples; the HMM learns return-distribution states without directional training labels. Here, **ANN means Approximate Nearest Neighbors**, not an artificial neural network. [1, 10] The neighbor classifier describes the current market state using stored historical examples. Each bar becomes a **feature vector**: a list of normalized indicator readings describing momentum, price deviation, and trend strength. A **label** is the directional value attached to a historical example.
@@ -341,6 +313,35 @@ Pine has per-loop and total execution limits. If HMM processing times out, reduc
 The [Python options port](quantconnect/kairos_v3_spy_3min_backtest.py) remains **V3**, without the V4/V4.1 neighbor classifier, regime additions or V5 checklist. It buys closest-ATM same-day SPY calls/puts with a $2,500 premium budget, using 3-minute signals and one-minute SPY exit checks.
 
 Its preset differs from Pine: smoothing ON/lag 6, slope OFF, VP window 10, opposite-flip exit OFF, stop 1.5× ATR, target 0.45R, cash cap OFF. Corrected options-mode performance remains unverified. See [backtest settings and results](quantconnect/KAIROS_V3_BACKTEST.md).
+
+## Updates in LC V5
+
+**V5 adds an entry checklist to the statistics table.** It shows which existing conditions pass for a long or short entry, with a separate view of the checks recorded for the last filled trade. The checklist reads the strategy's entry conditions; it does not add filters or change the inherited trading rules.
+
+| Addition | Function |
+| --- | --- |
+| 21 checklist rows | Direction, session, kernel, slope, VP, LC/ML, averages, regimes, HMM and position/quantity checks |
+| Current bar view | Compare LONG (`L`) and SHORT (`S`) on the latest confirmed decision bar |
+| Last filled trade view | Review the entry-submission checks preserved for an actual filled trade |
+| Status and detail | ✅ / ❌, OFF or WARMUP, with vote counts, slope and HMM values where applicable |
+
+Use the [V5 source](KAIROS_LC_Swing_Engine_V5_JXS_918.pine) for the current version. Checklist settings and the meaning of each status are explained under [V5 entry checklist](#v5-entry-checklist).
+
+### Retained from V4.1
+
+| Addition | Function |
+| --- | --- |
+| LC bar colours / prediction values | Optional candle tint and raw ML vote labels |
+| LC regime, volatility and ADX filters | Independent checks for trend/range conditions, ATR expansion and trend strength |
+| Adaptive three-state Gaussian HMM | Learns return distributions and state transitions, then filters entries by the current regime |
+| Regime diagnostics | Eight additional statistics rows, optional chart background and Data Window probabilities |
+
+The [V4.1 source](KAIROS_LC_Swing_Engine_V4_1_JXS_918.pine) remains available as the pre-checklist version. V5 retains its LC environment filters and Gaussian HMM. The [regime guide](KAIROS_V4_1_REGIMES.md) covers the inherited model, settings and verification in more detail. Regime changes filter new entries; they do not independently trigger orders, alter position size, or add exit rules.
+
+## Strategy screenshots
+
+<img width="958" height="599" alt="image" src="https://github.com/user-attachments/assets/b7bf11e2-afeb-473b-be74-310baa72ad6a" />
+<img width="959" height="599" alt="image" src="https://github.com/user-attachments/assets/9edb4e66-16b9-43d7-82c2-5141d29abc8f" />
 
 ## Author and license
 
